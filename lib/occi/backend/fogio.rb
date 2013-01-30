@@ -57,9 +57,10 @@ module OCCI
         @provider    = attributes.info.rocci.backend.fogio.provider
         @endpoint    = attributes.info.rocci.backend.fogio.endpoint
         @admin_token = attributes.info.rocci.backend.fogio.token
+        @tenant      = attributes.info.rocci.backend.fogio.tenant
 
         #TODO make it independent from openstack
-        @credentials = {:provider => @provider, :openstack_auth_url => @endpoint, :openstack_auth_token => @admin_token, :openstack_tenant => "rocci"}
+        @credentials = {:provider => @provider, :openstack_auth_url => @endpoint, :openstack_auth_token => @admin_token, :openstack_tenant => @tenant}
 
         scheme = attributes.info!.rocci!.backend!.fogio!.scheme if attributes
         scheme ||= self.class.kind_definition.attributes.info.rocci.backend.fogio.scheme.Default
@@ -143,10 +144,10 @@ module OCCI
         case(type)
           when "KEYSTONE"
             @token = subject
-            @credentials = {:provider => @provider, :openstack_auth_url => @endpoint, :openstack_auth_token => subject, :openstack_tenant => "rocci"}
+            @credentials = {:provider => @provider, :openstack_auth_url => @endpoint, :openstack_auth_token => subject, :openstack_tenant => @tenant}
             #TODO geht Username over check
             user ||= 'anonymous'
-            #test= Fog::OpenStack.authenticate_v2({:openstack_auth_token => @token, :openstack_auth_uri => URI.parse(@endpoint), :openstack_tenant => "rocci"})
+            #test= Fog::OpenStack.authenticate_v2({:openstack_auth_token => @token, :openstack_auth_uri => URI.parse(@endpoint), :openstack_tenant => @tenant})
           else
             cn = cert_subject [/.*\/CN=([^\/]*).*/,1]
             user = cn.downcase.gsub ' ','' if cn
@@ -217,18 +218,20 @@ module OCCI
         #@storage.register_all_instances
         @compute.register_all_instances client
 
+        entities = []
+
         @pstore.transaction(read_only=true) do
           entities = @pstore['links']
-          entities.each do |entity|
+        end
+
+        entities.each do |entity|
+          #Link zu seiner Resource hinzufügen
+          add_actions_from_link(entity)
+          if add_link_to_resource(entity)
             kind = @model.get_by_id(entity.kind)
             kind.entities << entity
-
-            #Link zu seiner Resource hinzufügen
-            add_actions_from_link(entity)
-            add_link_to_resource(entity)
-
-            OCCI::Log.debug("#### Number of entities in kind #{kind.type_identifier}: #{kind.entities.size}")
           end
+          OCCI::Log.debug("#### Number of entities in kind #{kind.type_identifier}: #{kind.entities.size}")
         end
       end
 
@@ -257,6 +260,11 @@ module OCCI
 
         if !resource.nil?
           resource.links << link
+          true
+        else
+          #source does not exist
+          amqplink_delete(@pstore, link)
+          false
         end
       end
 
@@ -282,11 +290,12 @@ module OCCI
 
       def amqplink_link(client, amqplink)
         amqplink.id = UUIDTools::UUID.timestamp_create.to_s
-        store_link(amqplink)
+        store_link amqplink
       end
 
       def amqplink_delete(client, amqplink)
         #link aus resource lösen und dann löschen
+        store_link amqplink, true
       end
 
       def network_deploy(client, network)
@@ -296,25 +305,25 @@ module OCCI
       end
 
       # ---------------------------------------------------------------------------------------------------------------------
-      def store_link(link)
+      def store_link(link, delete = false)
         OCCI::Log.debug("### DUMMY: Deploying link with id #{link.id}")
         @pstore.transaction do
           @pstore['links'].delete_if { |res| res.id == link.id }
-          @pstore['links'] << link
+          @pstore['links'] << link unless delete
         end
       end
 
-      def store_action(action)
+      def store_action(action, delete = false)
         @pstore.transaction do
           @pstore['actions'].delete_if { |res| res.type_identifier == action.type_identifier }
-          @pstore['actions'] << action
+          @pstore['actions'] << action unless delete
         end
       end
 
-      def store_mixin(mixin)
+      def store_mixin(mixin, delete = false)
         @pstore.transaction do
           @pstore['mixins'].delete_if { |res| res.type_identifier == mixin.type_identifier }
-          @pstore['mixins'] << mixin
+          @pstore['mixins'] << mixin unless delete
         end
       end
 
@@ -483,6 +492,10 @@ module OCCI
         @model.register(action)
       end
 
+      def unregister_action(action)
+        raise "Not Implemented Yet"
+      end
+
       def register_mixin(mixin)
 
         #convert actions from occi 3.0.x to occi 2.5.x
@@ -494,6 +507,36 @@ module OCCI
 
         store_mixin mixin
         @model.register(mixin)
+      end
+
+      def unregister_mixin(mixin)
+        #search if mixin is in use
+        found_mixin = false
+
+        @model.get.kinds.each do |kind|
+          break if found_mixin
+          kind.entities.each do |entity|
+            if entity.mixins.select{|smixin| smixin == mixin.type_identifier}.any?
+              found_mixin = true
+              break
+            end
+          end
+        end
+
+        unless found_mixin
+          #unregister in Model
+          @model.categories.delete mixin.type_identifier
+          @model.locations.delete mixin.location
+          store_mixin mixin, true
+
+          mixin.actions.each do |action|
+            #unregister actions
+            action.type_identifier = (action.scheme + action.term)
+            @model.categories.delete action.type_identifier
+            #delete from pstore
+            store_action action, true
+          end
+        end
       end
 
     end

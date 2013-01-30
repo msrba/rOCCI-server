@@ -283,17 +283,26 @@ module OCCI
         def delete(request)
           if request.path_info == "/-/" or request.path_info == "/.well-known/org/ogf/occi/-/"
             # Location references query interface => delete provided mixin
-            raise OCCI::CategoryMissingException if @request_collection.mixins.nil?
-            mixins = @backend.model.get(@request_collection).mixins
-            raise OCCI::MixinNotFoundException if mixins.nil?
-            mixins.each do |mixin|
-              OCCI::Log.debug("### Deleting mixin #{mixin.type_identifier} ###")
-              mixin.entities.each do |entity|
-                entity.mixins.delete(mixin)
-              end
-              # TODO: Notify backend to delete mixin and unassociate entities
-              @backend.model.unregister(mixin)
+            raise "Mixin not found!" if @backend.model.get(@request_collection).mixins.nil?
+
+            @request_collection.actions.each do |action|
+              @backend.unregister_action(action)
             end
+            @request_collection.mixins.each do |mixin|
+              @backend.unregister_mixin(mixin)
+            end
+
+            #raise OCCI::CategoryMissingException if @request_collection.mixins.nil?
+            #mixins = @backend.model.get(@request_collection).mixins
+            #raise OCCI::MixinNotFoundException if mixins.nil?
+            #mixins.each do |mixin|
+            #  OCCI::Log.debug("### Deleting mixin #{mixin.type_identifier} ###")
+            #  mixin.entities.each do |entity|
+            #    entity.mixins.delete(mixin)
+            #  end
+            #  # TODO: Notify backend to delete mixin and unassociate entities
+            #  @backend.model.unregister(mixin)
+            #end
             @server.status 200
           else
             # unassociate resources specified by URI in payload from mixin specified by request location
