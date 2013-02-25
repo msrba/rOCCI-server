@@ -54,13 +54,24 @@ module OCCI
 
       def initialize(kind='http://rocci.org/server#backend', mixins=nil, attributes=nil, links=nil)
         #TODO openstack_api_key and openstack_username per authorization
-        @provider    = attributes.info.rocci.backend.fogio.provider
-        @endpoint    = attributes.info.rocci.backend.fogio.endpoint
-        @admin_token = attributes.info.rocci.backend.fogio.token
-        @tenant      = attributes.info.rocci.backend.fogio.tenant
+        @provider      = attributes.info.rocci.backend.fogio.provider
+        @endpoint      = attributes.info.rocci.backend.fogio.endpoint
+        @admin_token   = attributes.info.rocci.backend.fogio.token
+        @tenant        = attributes.info.rocci.backend.fogio.tenant
+        @user          = attributes.info.rocci.backend.fogio.user
+        @api_key       = attributes.info.rocci.backend.fogio.api_key
+        @default_image = attributes.info.rocci.backend.fogio.default_image
 
         #TODO make it independent from openstack
-        @credentials = {:provider => @provider, :openstack_auth_url => @endpoint, :openstack_auth_token => @admin_token, :openstack_tenant => @tenant}
+
+        @credentials = {
+            :provider => @provider,
+            :openstack_auth_url => @endpoint,
+            :openstack_api_key => @api_key,
+            :openstack_username => @user,
+            #:openstack_auth_token => @admin_token,
+            :openstack_tenant => @tenant,
+        }
 
         scheme = attributes.info!.rocci!.backend!.fogio!.scheme if attributes
         scheme ||= self.class.kind_definition.attributes.info.rocci.backend.fogio.scheme.Default
@@ -144,10 +155,10 @@ module OCCI
         case(type)
           when "KEYSTONE"
             @token = subject
-            @credentials = {:provider => @provider, :openstack_auth_url => @endpoint, :openstack_auth_token => subject, :openstack_tenant => @tenant}
+            #@credentials = {:provider => @provider, :openstack_auth_url => @endpoint, :openstack_auth_token => subject, :openstack_tenant => @tenant}
             #TODO geht Username over check
             user ||= 'anonymous'
-            #test= Fog::OpenStack.authenticate_v2({:openstack_auth_token => @token, :openstack_auth_uri => URI.parse(@endpoint), :openstack_tenant => @tenant})
+
           else
             cn = cert_subject [/.*\/CN=([^\/]*).*/,1]
             user = cn.downcase.gsub ' ','' if cn
@@ -271,7 +282,7 @@ module OCCI
       # TODO: register user defined mixins
 
       def compute_deploy(client, compute)
-        @compute.deploy(client, compute)
+        @compute.deploy(client, compute, :default_image => @default_image)
       end
 
       def storage_deploy(client, storage)

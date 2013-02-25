@@ -137,30 +137,30 @@ module OCCI
             end
           end
 
-          def deploy(client, compute)
+          def deploy(client, compute, options = {})
             OCCI::Log.debug "Deploying #{compute.inspect}"
 
             compute.id = UUIDTools::UUID.timestamp_create.to_s
 
             #simulation_id = compute.attributes.org.cloud4E.service.simulation.id;
-            simulation_id = ""
+            simulation_id = ''
 
-            image_ref = "05cb3f9f-0a60-46c8-8954-176047763aa5"
-            flavor_id = 1
+            image_ref = options[:default_image]
+            flavor_id = 2
 
             if(!simulation_id.nil? && simulation_id.to_s.length > 0)
               image_ref = simulation_id
             end
 
-            file = {"contents" => compute.id, "path" => "home/occi.info"}
+            file = {'contents' => compute.id, 'path' => 'home/occi.info'}
 
             personality = []
             personality << file
 
             options = {
-                "metadata" => {"test_key" => "value"},
+                "metadata"    => {'occi' => compute.id},
                 "personality" => personality,
-                "adminPass" => "cloud4e"
+                "adminPass"   => 'cloud4e'
             }
 
             server = client.create_server compute.title, image_ref, flavor_id, options
