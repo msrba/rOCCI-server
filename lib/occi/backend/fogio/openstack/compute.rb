@@ -152,7 +152,7 @@ module OCCI
               image_ref = simulation_id
             end
 
-            file = {'contents' => compute.id, 'path' => 'home/occi.info'}
+            file = {'contents' => {:compute_uuid => compute.id}.to_yaml, 'path' => 'home/occi.info'}
 
             personality = []
             personality << file
