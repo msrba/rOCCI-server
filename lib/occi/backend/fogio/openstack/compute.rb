@@ -152,13 +152,13 @@ module OCCI
               image_ref = simulation_id
             end
 
-            file = {'contents' => {:compute_uuid => compute.id}.to_yaml, 'path' => 'home/occi.info'}
+            file = {'contents' => {:compute_uuid => compute.id, :service_identifier => "http://gwdg.de/simulation/gaussianconnector"}.to_yaml, 'path' => 'home/occi.info'}
 
             personality = []
             personality << file
 
             options = {
-                "metadata"    => {'occi' => compute.id},
+                "metadata"    => {"occi" => compute.id.to_s},
                 "personality" => personality,
                 "adminPass"   => 'cloud4e'
             }
