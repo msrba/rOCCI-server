@@ -242,7 +242,7 @@ module OCCI
             kind = @model.get_by_id(entity.kind)
             kind.entities << entity
           end
-          OCCI::Log.debug("#### Number of entities in kind #{kind.type_identifier}: #{kind.entities.size}")
+          OCCI::Log.debug("#### Number of entities in kind #{kind.type_identifier}: #{kind.entities.size}") if kind
         end
       end
 
