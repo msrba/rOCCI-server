@@ -63,9 +63,13 @@ module OCCI
             compute = OCCI::Core::Resource.new(kind.type_identifier)
             compute.mixins << 'http://openstack.org/occi/infrastructure#compute'
 
+            parse_metadata(compute, backend_object.metadata)
+
+            compute.mixins.uniq!
+
             id = backend_object.attributes[:id]  #metadata
 
-            compute.id = @uuid_matching[id]
+            compute.id ||= @uuid_matching[id]
 
             if compute.id.nil? || compute.id.length <= 0
               compute.id = UUIDTools::UUID.timestamp_create.to_s
@@ -97,13 +101,34 @@ module OCCI
             parse_links client, backend_object, compute
 
             kind.entities << compute unless kind.entities.select { |entity| entity.id == compute.id }.any?
-
           end
 
           def parse_links client, backend_object, compute
             #network
 
             #storage
+          end
+
+          def parse_metadata(compute, metadata)
+            metadata.each do |metadata|
+              value = metadata.attributes[:value]
+
+              if metadata.attributes[:key][0, 'occi_attribute'.length] == 'occi_attribute'
+                keys = metadata.attributes[:key]['occi_attribute_'.length..-1].split('.')
+
+                if keys[0] == 'cloud4e'
+                  compute.mixins << 'http://cloud4e.de/occi/service#simulation'
+                  compute.mixins.uniq!
+                end
+
+                attribute = compute.attributes.send "#{keys.delete_at(0)}!"
+                last = keys.delete_at(-1)
+
+                keys.each {|key| attribute = attribute.send "#{key}!"}
+
+                attribute.send "#{last}=" ,value
+              end
+            end
           end
 
           def set_state(backend_object, compute)
