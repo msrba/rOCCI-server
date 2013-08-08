@@ -23,11 +23,6 @@ gem "amqp"
 # fogio
 gem "fog"
 
-# sinatra and related
-gem "sinatra"
-gem "sinatra-contrib"
-gem "sinatra-cross_origin"
-
 # active gems
 gem "activesupport", "~> 3.2.14"
 
