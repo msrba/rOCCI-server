@@ -52,7 +52,7 @@ GEM
     oca (3.4.1)
       nokogiri
       xmlparser
-    occi (2.5.18)
+    occi (2.5.19)
       activesupport
       antlr3
       hashie
