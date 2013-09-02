@@ -67,7 +67,7 @@ module OCCI
 
             compute.mixins.uniq!
 
-            id = backend_object.attributes[:id]  #metadata
+            compute.id = backend_object.attributes[:id]  #metadata
 
             compute.id ||= @uuid_matching[id]
 
