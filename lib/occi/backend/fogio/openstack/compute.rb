@@ -60,16 +60,14 @@ module OCCI
 
             flavor = client.flavors.get backend_object.attributes[:flavor]['id']
 
+            id = backend_object.attributes[:id]
+
             compute = OCCI::Core::Resource.new(kind.type_identifier)
+            compute.id = @uuid_matching[id]
             compute.mixins << 'http://openstack.org/occi/infrastructure#compute'
 
             parse_metadata(compute, backend_object.metadata)
-
             compute.mixins.uniq!
-
-            compute.id = backend_object.attributes[:id]  #metadata
-
-            compute.id ||= @uuid_matching[id]
 
             if compute.id.nil? || compute.id.length <= 0
               compute.id = UUIDTools::UUID.timestamp_create.to_s
@@ -77,11 +75,7 @@ module OCCI
             end
 
             compute.title = backend_object.attributes[:name]
-            #compute.summary = #metadata
-            #
             compute.attributes.occi!.compute!.cores = flavor.attributes[:vcpus]
-            #compute.attributes.occi!.compute!.architecture = "x64" if backend_object['TEMPLATE/ARCHITECTURE'] == "x86_64"
-            #compute.attributes.occi!.compute!.architecture = "x86" if backend_object['TEMPLATE/ARCHITECTURE'] == "i686"
             compute.attributes.occi!.compute!.memory = flavor.attributes[:ram]
 
             compute.attributes.org!.openstack!.compute!.ephemeral   = flavor.attributes[:ephemeral]
@@ -104,27 +98,25 @@ module OCCI
           end
 
           def parse_links client, backend_object, compute
-            #network
-
-            #storage
           end
 
           def parse_metadata(compute, metadata)
             metadata.each do |metadata|
               value = metadata.attributes[:value]
+              key = metadata.attributes[:key]
 
-              if metadata.attributes[:key][0, 'occi_attribute'.length] == 'occi_attribute'
-                keys = metadata.attributes[:key]['occi_attribute_'.length..-1].split('.')
+              if key[0, 'occi_attribute'.length] == 'occi_attribute'
+                attribute_keys = key['occi_attribute_'.length..-1].split('.')
 
-                if keys[0] == 'cloud4e'
+                if attribute_keys[0] == 'cloud4e'
                   compute.mixins << 'http://cloud4e.de/occi/service#simulation'
                   compute.mixins.uniq!
                 end
 
-                attribute = compute.attributes.send "#{keys.delete_at(0)}!"
-                last = keys.delete_at(-1)
+                attribute = compute.attributes.send "#{attribute_keys.delete_at(0)}!"
+                last = attribute_keys.delete_at(-1)
 
-                keys.each {|key| attribute = attribute.send "#{key}!"}
+                attribute_keys.each {|attribute_key| attribute = attribute.send "#{attribute_key}!"}
 
                 attribute.send "#{last}=" ,value
               end
@@ -167,7 +159,6 @@ module OCCI
 
             compute.id = UUIDTools::UUID.timestamp_create.to_s
 
-            #simulation_id = compute.attributes.org.cloud4E.service.simulation.id;
             simulation_id = ''
 
             image_ref = options[:default_image]
