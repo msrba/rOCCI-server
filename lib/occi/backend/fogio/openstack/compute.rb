@@ -168,7 +168,15 @@ module OCCI
               image_ref = simulation_id
             end
 
-            file_content = {:compute_uuid => compute.id}
+            storage_endpoint = Config.instance.amqp[:identifier].split('://').last
+            storage_endpoint = storage_endpoint.split('/').first
+            storage_endpoint = storage_endpoint.split(':').first
+
+            file_content = {
+                :compute_uuid => compute.id,
+                :storage_endpoint => storage_endpoint,
+                :endpoint => Config.instance.amqp[:identifier]
+            }
             meta_data    = {'occi_attribute_occi.core.id' => compute.id.to_s}
 
             if compute.attributes.cloud4e!.service!.simulation!.identifier
