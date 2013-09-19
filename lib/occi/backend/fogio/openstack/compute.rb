@@ -175,7 +175,7 @@ module OCCI
             file_content = {
                 :compute_uuid => compute.id,
                 :storage_endpoint => storage_endpoint,
-                :endpoint => Config.instance.amqp[:identifier]
+                :endpoint => Config.instance.amqp[:identifier].split('amqp.occi.').last
             }
             meta_data    = {'occi_attribute_occi.core.id' => compute.id.to_s}
 
