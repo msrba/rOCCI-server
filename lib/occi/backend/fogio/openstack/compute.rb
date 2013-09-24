@@ -88,6 +88,11 @@ module OCCI
             compute.attributes.org!.openstack!.compute!.accessIPv4  = backend_object.attributes[:accessIPv4].to_s if backend_object.attributes[:accessIPv4].to_s.length > 0
             compute.attributes.org!.openstack!.compute!.accessIPv6  = backend_object.attributes[:accessIPv6].to_s if backend_object.attributes[:accessIPv6].to_s.length > 0
 
+            unless backend_object.attributes[:addresses]['fixed'].nil?
+              compute.attributes.org!.openstack!.compute!.fixedIP     = backend_object.attributes[:addresses]['fixed'][0]['addr'].to_s unless backend_object.attributes[:addresses]['fixed'].empty?
+            end
+
+
             compute.check(@model)
 
             set_state backend_object, compute
@@ -192,7 +197,7 @@ module OCCI
 
             options = {
                 "metadata"    => meta_data,
-                "personality" => personality,
+            #    "personality" => personality,
                 "adminPass"   => 'cloud4e'
             }
 
