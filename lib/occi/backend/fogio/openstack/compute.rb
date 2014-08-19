@@ -32,30 +32,9 @@ module OCCI
 
           def initialize(model)
             @model = model
-
-            initUUIDMatching
-          end
-
-          def initUUIDMatching
-            @pstore = PStore.new("occi_uuid_matching")
-            @pstore.transaction do
-              @pstore['compute_openstack'] ||= {}
-            end
-
-            @pstore.transaction(read_only=true) do
-              @uuid_matching = @pstore['compute_openstack']
-            end
-          end
-
-          def storeUUID(uuid, openstack_uuid)
-            @uuid_matching[openstack_uuid] = uuid
-            @pstore.transaction do
-              @pstore['compute_openstack'] = @uuid_matching
-            end
           end
 
           def parse_backend_object(client, backend_object)
-            initUUIDMatching
             kind = @model.get_by_id("http://schemas.ogf.org/occi/infrastructure#compute")
 
             flavor = client.flavors.get backend_object.attributes[:flavor]['id']
@@ -63,21 +42,22 @@ module OCCI
             id = backend_object.attributes[:id]
 
             compute = OCCI::Core::Resource.new(kind.type_identifier)
-            compute.id = @uuid_matching[id]
             compute.mixins << 'http://openstack.org/occi/infrastructure#compute'
+            compute.id = nil
 
             parse_metadata(compute, backend_object.metadata)
             compute.mixins.uniq!
 
             if compute.id.nil? || compute.id.length <= 0
               compute.id = UUIDTools::UUID.timestamp_create.to_s
-              storeUUID compute.id, id
+              client.set_metadata("servers", id, {'occi_attribute_occi.core.id' => compute.id.to_s})
             end
 
             compute.title = backend_object.attributes[:name]
             compute.attributes.occi!.compute!.cores = flavor.attributes[:vcpus]
             compute.attributes.occi!.compute!.memory = flavor.attributes[:ram]
 
+            compute.attributes.org!.openstack!.compute!.id = id
             compute.attributes.org!.openstack!.compute!.ephemeral = flavor.attributes[:ephemeral]
             compute.attributes.org!.openstack!.compute!.flavor_id = flavor.attributes[:id]
             compute.attributes.org!.openstack!.compute!.image_id = backend_object.attributes[:image]["id"]
@@ -91,7 +71,6 @@ module OCCI
             unless backend_object.attributes[:addresses]['fixed'].nil?
               compute.attributes.org!.openstack!.compute!.fixedIP = backend_object.attributes[:addresses]['fixed'][0]['addr'].to_s unless backend_object.attributes[:addresses]['fixed'].empty?
             end
-
 
             compute.check(@model)
 
@@ -129,7 +108,6 @@ module OCCI
           end
 
           def set_state(backend_object, compute)
-            initUUIDMatching
             backend_state = backend_object.attributes[:os_ext_sts_vm_state].downcase
 
             OCCI::Log.debug("current VM state is: #{backend_state}")
@@ -160,7 +138,7 @@ module OCCI
           end
 
           def deploy(client, compute, options = {})
-            OCCI::Log.debug "Deploying #{compute.inspect}"
+            OCCI::Log.debug "Deploy #{compute.inspect}"
 
             compute.id = UUIDTools::UUID.timestamp_create.to_s
 
@@ -197,20 +175,19 @@ module OCCI
 
             options = {
                 "metadata" => meta_data,
-                #    "personality" => personality,
                 "user_data" => Base64.encode64(file_content.to_yaml),
                 "adminPass" => 'cloud4e'
             }
 
-            server = client.create_server compute.title, image_ref, flavor_id, options
-
-            storeUUID compute.id, server.body["server"]["id"]
-
-            start(client, compute)
+            client.create_server compute.title, image_ref, flavor_id, options
           end
 
           def delete(client, compute)
+            OCCI::Log.debug "Delete #{compute.inspect}"
 
+            server_id =  compute.attributes.org!.openstack!.compute!.id
+
+            client.delete_server(server_id)
           end
 
           def start(client, compute, parameters=nil)
