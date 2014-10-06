@@ -32,7 +32,7 @@ module OCCI
     # ---------------------------------------------------------------------------------------------------------------------         
     class Fogio < OCCI::Core::Resource
 
-      attr_reader :model
+      attr_reader :model, :scheme
       attr_accessor :amqp_worker
 
       def self.kind_definition
@@ -61,6 +61,10 @@ module OCCI
         @user          = attributes.info.rocci.backend.fogio.user
         @api_key       = attributes.info.rocci.backend.fogio.api_key
         @default_image = attributes.info.rocci.backend.fogio.default_image
+        @default_flavor = attributes.info.rocci.backend.fogio.default_flavor
+        @scheme        = attributes.info!.rocci!.backend!.fogio!.scheme
+        @scheme ||= self.class.kind_definition.attributes.info.rocci.backend.fogio.scheme.Default
+        @scheme.chomp!('/')
 
         #TODO make it independent from openstack
 
@@ -73,26 +77,26 @@ module OCCI
             :openstack_tenant => @tenant,
         }
 
-        scheme = attributes.info!.rocci!.backend!.fogio!.scheme if attributes
-        scheme ||= self.class.kind_definition.attributes.info.rocci.backend.fogio.scheme.Default
-        scheme.chomp!('/')
         @model = OCCI::Model.new
         @model.register_core
         @model.register_infrastructure
-        @model.register_files("etc/backend/fogio/model/infrastructure/#{@provider}", scheme)
-        @model.register_files("etc/backend/fogio/model/infrastructure/amqp", scheme)
-        @model.register_files("etc/backend/fogio/model/service", scheme)
-        @model.register_files("etc/backend/fogio/templates/#{@provider}", scheme)
+        @model.register_files("etc/backend/fogio/model/infrastructure/#{@provider}", @scheme)
+        @model.register_files("etc/backend/fogio/model/infrastructure/amqp", @scheme)
+        @model.register_files("etc/backend/fogio/model/service", @scheme)
+        @model.register_files("etc/backend/fogio/templates/#{@provider}", @scheme)
 
         require "occi/backend/fogio/#{@provider}/compute"
         require "occi/backend/fogio/#{@provider}/network"
         require "occi/backend/fogio/#{@provider}/storage"
-        require "occi/backend/fogio/#{@provider}/image"
+        require "occi/backend/fogio/#{@provider}/os_tpl"
+        require "occi/backend/fogio/#{@provider}/flavor_tpl"
         require "occi/backend/fogio/cloud4e/simulation"
+
         @compute = class_from_string("OCCI::Backend::Fogio::#{@provider.camelize}::Compute").new(@model)
         @network = class_from_string("OCCI::Backend::Fogio::#{@provider.camelize}::Network").new(@model)
         @storage = class_from_string("OCCI::Backend::Fogio::#{@provider.camelize}::Storage").new(@model)
-        @images = class_from_string("OCCI::Backend::Fogio::#{@provider.camelize}::Image").new(@model)
+        @os_tpl = class_from_string("OCCI::Backend::Fogio::#{@provider.camelize}::OsTpl").new(@model, self)
+        @flavor_tpl = class_from_string("OCCI::Backend::Fogio::#{@provider.camelize}::FlavorTpl").new(@model, self)
         @simulation = class_from_string("OCCI::Backend::Fogio::Cloud4e::Simulation").new(@model)
 
         OCCI::Backend::Manager.register_backend(OCCI::Backend::Fogio, OCCI::Backend::Fogio::OPERATIONS)
@@ -228,7 +232,8 @@ module OCCI
       # ---------------------------------------------------------------------------------------------------------------------
       def register_existing_resources(client)
 
-        @images.register_all client
+        @os_tpl.register_all client
+        @flavor_tpl.register_all client
         #@network.register_all_instances
         #@storage.register_all_instances
         @compute.register_all_instances client
@@ -286,7 +291,7 @@ module OCCI
       # TODO: register user defined mixins
 
       def compute_deploy(client, compute)
-        @compute.deploy(client, compute, :default_image => @default_image)
+        @compute.deploy(client, compute, :default_image => @default_image, :default_flavor => @default_flavor)
       end
 
       def compute_delete(client, compute)

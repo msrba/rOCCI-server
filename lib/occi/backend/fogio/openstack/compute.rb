@@ -142,14 +142,28 @@ module OCCI
 
             compute.id = UUIDTools::UUID.timestamp_create.to_s
 
-            simulation_id = ''
+            os_tpl = compute.mixins.select { |mixin|
+              mixin = @model.get_by_id(mixin) if mixin.kind_of? String
+              mixin.related_to? 'http://schemas.ogf.org/occi/infrastructure#os_tpl' if mixin
+            }.compact.first
 
-            image_ref = options[:default_image]
-            flavor_id = 2
-
-            if (!simulation_id.nil? && simulation_id.to_s.length > 0)
-              image_ref = simulation_id
+            if os_tpl
+              os_tpl = @model.get_by_id(os_tpl)
+              image_ref = os_tpl.attributes.org.openstack.os_tpl.id['Default']
             end
+
+            flavor_tpl = compute.mixins.select { |mixin|
+              mixin = @model.get_by_id(mixin) if mixin.kind_of? String
+              mixin.related_to? 'http://schemas.ogf.org/occi/infrastructure#resource_tpl' if mixin
+            }.compact.first
+
+            if flavor_tpl
+              flavor_tpl = @model.get_by_id(flavor_tpl)
+              flavor_id = flavor_tpl.term
+            end
+
+            image_ref ||= options[:default_image]
+            flavor_id ||= options[:default_flavor]
 
             storage_endpoint = Config.instance.amqp[:identifier].split('://').last
             storage_endpoint = storage_endpoint.split('/').first
@@ -174,9 +188,9 @@ module OCCI
             personality << file
 
             options = {
-                "metadata" => meta_data,
-                "user_data" => Base64.encode64(file_content.to_yaml),
-                "adminPass" => 'cloud4e'
+                'metadata' => meta_data,
+                'user_data' => Base64.encode64(file_content.to_yaml),
+                'adminPass' => 'cloud4e'
             }
 
             client.create_server compute.title, image_ref, flavor_id, options
