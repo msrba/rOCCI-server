@@ -114,6 +114,34 @@ module OCCI
         #TODO make it intependent from openstack
         #test= Fog::OpenStack.authenticate_v2({:openstack_auth_token => @token, :openstack_auth_uri => URI.parse(@endpoint), :openstack_tenant => "rocci"})
         #test = test
+        case username
+          when 'admin' then
+            @credentials[:openstack_tenant] = 'cloud4e_gwdg'
+            return password == 'ophsiadikoca'
+          when 'iti' then
+            @credentials[:openstack_tenant] = 'cloud4e_iti'
+            return password == 'besleomvayk3'
+          when 'eras' then
+            @credentials[:openstack_tenant] = 'cloud4e_eras'
+            return password == 'goifrolgyeki'
+          when 'eas' then
+            @credentials[:openstack_tenant] = 'cloud4e_eas'
+            return password == 'icdeysoptus4'
+          when 'fau1' then
+            @credentials[:openstack_tenant] = 'cloud4e_fau1'
+            return password == 'divindijkif0'
+          when 'fau2' then
+            @credentials[:openstack_tenant] = 'cloud4e_fau2'
+            return password == 'naitwarshaks'
+          when 'gwdg' then
+            @credentials[:openstack_tenant] = 'cloud4e_gwdg'
+            return password == 'owtebthygar3'
+          when 'anonymous' then
+            @credentials[:openstack_tenant] = @tenant
+            return true
+          else
+            return false
+        end
       end
 
       # Generate a new fog.io client for the target User, if the username

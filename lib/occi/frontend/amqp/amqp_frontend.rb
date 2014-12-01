@@ -16,11 +16,19 @@ module OCCI
         # @param [OCCI::Frontend::Amqp::AmqpRequest] request
         # @return [String]
         def check_authorization(request)
-          if request.env['HTTP_X_AUTH_TOKEN']
+          username = 'anonymous'
+
+          if request.auth['type'] == 'basic'
+            server.halt 401, "Not authorized\n" unless @backend.authorized?(request.auth['username'], request.auth['password'])
+            puts 'basic auth successful'
+            username = request.auth['username']
+          elsif request.env['HTTP_X_AUTH_TOKEN']
             username = @backend.get_username(request.env['HTTP_X_AUTH_TOKEN'], "KEYSTONE")
+          else
+            @backend.authorized?('anonymous', 'anonymous')
           end
 
-          username ||= 'anonymous'
+          username
         end
       end
     end

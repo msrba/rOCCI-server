@@ -23,7 +23,8 @@ module OCCI
           digest_auth = Rack::Auth::Digest::Request.new(request.env)
           if basic_auth.provided? && basic_auth.basic?
             username, password = basic_auth.credentials
-            server.halt 403, "Password in request does not match password of user #{username}" unless @backend.authorized?(username, password)
+            server.headers['WWW-Authenticate'] = 'Basic realm="rocci-server"'
+            server.halt 401, "Not authorized\n"  unless @backend.authorized?(username, password)
             puts "basic auth successful"
             username
           elsif digest_auth.provided? && digest_auth.digest?
@@ -58,6 +59,9 @@ module OCCI
             @backend.authorized?(username, request.env['HTTP_X_AUTH_TOKEN'])
             username
           else
+            server.headers['WWW-Authenticate'] = 'Basic realm="rocci-server"'
+            server.halt 401, "Not authorized\n"
+
             'anonymous'
           end
         end
