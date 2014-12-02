@@ -9,7 +9,13 @@ module OCCI
     # Config.instance.amqp[:connection_setting]
 
     def initialize
-      @_settings = YAML::load_file(File.dirname(__FILE__) + "/../../etc/configuration.yml")[ENV['RACK_ENV'] || 'default']
+      @_settings = YAML::load_file(File.dirname(__FILE__) + "/../../etc/configuration.yml")
+      #[ENV['RACK_ENV'] || 'default']
+      if ENV['RACK_ENV'] && @_settings.has_key?(ENV['RACK_ENV'])
+        @_settings = @_settings[ENV['RACK_ENV']]
+      else
+        @_settings = @_settings['default']
+      end
       @_settings = deep_symbolize(@_settings)
     end
 
